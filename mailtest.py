@@ -10,7 +10,7 @@ import time
 import traceback
 from email.mime.text import MIMEText
 
-# https://copilot.microsoft.com/shares/vS3rk4XggHAfRioMYiqRP
+# Initial info from https://copilot.microsoft.com/shares/vS3rk4XggHAfRioMYiqRP
 
 CONF_FILE = "mailtest.ini"
 
@@ -28,6 +28,7 @@ DEBUG_LEVEL = 4 if config["EMAIL"].getboolean("DEBUG", False) else 0
 
 
 def send_email(timestamp):
+    msg = None
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
             server.set_debuglevel(DEBUG_LEVEL)
@@ -41,22 +42,26 @@ def send_email(timestamp):
             server.sendmail(EMAIL_ADDRESS, EMAIL_ADDRESS, msg.as_string())
             print("Email sent successfully.")
     except Exception as e:  # pylint: disable=broad-except
-        subprocess.run(
-            [
-                "/usr/local/bin/ntfy",
-                "send",
-                f"mailtest send failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}",
-            ],
-            check=True,
-            capture_output=True,
-        )
+        msg = traceback.format_exc()
+
+        # subprocess.run(
+        #     [
+        #         "/usr/local/bin/ntfy",
+        #         "send",
+        #         f"mailtest send failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}",
+        #     ],
+        #     check=True,
+        #     capture_output=True,
+        # )
         print(f"Error sending email: {e}")
 
+    return msg
 
 # Function to retrieve an email
 
 
 def retrieve_email(timestamp):
+    msg = None
     try:
         with imaplib.IMAP4_SSL(IMAP_SERVER) as mail:
             mail.debug = DEBUG_LEVEL
@@ -81,33 +86,67 @@ def retrieve_email(timestamp):
                         print("Email deleted.")
                         break
             else:
-                subprocess.run(
-                    [
-                        "/usr/local/bin/ntfy",
-                        "send",
-                        f"mailtest receive failed for timestamp {str(timestamp)}: Message not found"
-                    ],
-                    check=True,
-                    capture_output=True,
-                )
+                # subprocess.run(
+                #     [
+                #         "/usr/local/bin/ntfy",
+                #         "send",
+                #         f"mailtest receive failed for timestamp {str(timestamp)}: Message not found"
+                #     ],
+                #     check=True,
+                #     capture_output=True,
+                # )
+                msg = "Message not found"
     except Exception as e:  # pylint: disable=broad-except
-        subprocess.run(
-            [
-                "/usr/local/bin/ntfy",
-                "send",
-                f"mailtest receive failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}"
-            ],
-            check=True,
-            capture_output=True,
-        )
+        # subprocess.run(
+        #     [
+        #         "/usr/local/bin/ntfy",
+        #         "send",
+        #         f"mailtest receive failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}"
+        #     ],
+        #     check=True,
+        #     capture_output=True,
+        # )
         print(f"Error retrieving email: {e}")
+        msg = f"Error fetching email: {traceback.format_exc()}"
+
+    return msg
+
+
+def notify_failure(timestamp, error_message):
+    subprocess.run(
+        [
+            "/usr/local/bin/ntfy",
+            "send",
+            f"mailtest failed for timestamp {str(timestamp)}:\n{error_message}"
+        ],
+        check=True,
+        capture_output=True,
+    )
 
 
 # Main workflow
 
+def main():
+    if __name__ == "__main__":
+        now = time.time()
+        if DEBUG_LEVEL > 0:
+            print(f"Current timestamp: {time.ctime(now)}")
+            print(f"SMTP_SERVER: {SMTP_SERVER}")
+            print(f"SMTP_PORT: {SMTP_PORT}")
+            print(f"IMAP_SERVER: {IMAP_SERVER}")
+            print(f"EMAIL_ADDRESS: {EMAIL_ADDRESS}")
+
+        if not send_email(now):
+            notify_failure(now, "Email sending failed")
+        else:
+            print("Waiting for email to be sent...")
+            time.sleep(30)  # Wait 30 seconds
+            print("Retrieving email...")
+            if not (result := retrieve_email(now)):
+                notify_failure(now, result)
+            else:
+                print("Email retrieved successfully")
+
 
 if __name__ == "__main__":
-    now = time.time()
-    send_email(now)
-    time.sleep(30)  # Wait 30 seconds
-    retrieve_email(now)
+    main()
