@@ -43,16 +43,6 @@ def send_email(timestamp):
             print("Email sent successfully.")
     except Exception as e:  # pylint: disable=broad-except
         msg = traceback.format_exc()
-
-        # subprocess.run(
-        #     [
-        #         "/usr/local/bin/ntfy",
-        #         "send",
-        #         f"mailtest send failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}",
-        #     ],
-        #     check=True,
-        #     capture_output=True,
-        # )
         print(f"Error sending email: {e}")
 
     return msg
@@ -86,26 +76,8 @@ def retrieve_email(timestamp):
                         print("Email deleted.")
                         break
             else:
-                # subprocess.run(
-                #     [
-                #         "/usr/local/bin/ntfy",
-                #         "send",
-                #         f"mailtest receive failed for timestamp {str(timestamp)}: Message not found"
-                #     ],
-                #     check=True,
-                #     capture_output=True,
-                # )
                 msg = "Message not found"
     except Exception as e:  # pylint: disable=broad-except
-        # subprocess.run(
-        #     [
-        #         "/usr/local/bin/ntfy",
-        #         "send",
-        #         f"mailtest receive failed for timestamp {str(timestamp)}:\n{traceback.format_exc()}"
-        #     ],
-        #     check=True,
-        #     capture_output=True,
-        # )
         print(f"Error retrieving email: {e}")
         msg = f"Error fetching email: {traceback.format_exc()}"
 
@@ -136,13 +108,13 @@ def main():
             print(f"IMAP_SERVER: {IMAP_SERVER}")
             print(f"EMAIL_ADDRESS: {EMAIL_ADDRESS}")
 
-        if not send_email(now):
-            notify_failure(now, "Email sending failed")
+        if (result := send_email(now)):
+            notify_failure(now, result)
         else:
             print("Waiting for email to be sent...")
             time.sleep(30)  # Wait 30 seconds
             print("Retrieving email...")
-            if not (result := retrieve_email(now)):
+            if (result := retrieve_email(now)):
                 notify_failure(now, result)
             else:
                 print("Email retrieved successfully")
