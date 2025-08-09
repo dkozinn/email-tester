@@ -28,7 +28,7 @@ DEBUG_LEVEL = 4 if config["EMAIL"].getboolean("DEBUG", False) else 0
 
 
 def send_email(timestamp):
-    msg = None
+    errmsg = None
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
             server.set_debuglevel(DEBUG_LEVEL)
@@ -42,16 +42,16 @@ def send_email(timestamp):
             server.sendmail(EMAIL_ADDRESS, EMAIL_ADDRESS, msg.as_string())
             print("Email sent successfully.")
     except Exception as e:  # pylint: disable=broad-except
-        msg = traceback.format_exc()
+        errmsg = traceback.format_exc()
         print(f"Error sending email: {e}")
 
-    return msg
+    return errmsg
 
 # Function to retrieve an email
 
 
 def retrieve_email(timestamp):
-    msg = None
+    errmsg = None
     try:
         with imaplib.IMAP4_SSL(IMAP_SERVER) as mail:
             mail.debug = DEBUG_LEVEL
@@ -76,12 +76,12 @@ def retrieve_email(timestamp):
                         print("Email deleted.")
                         break
             else:
-                msg = "Message not found"
+                errmsg = "Message not found"
     except Exception as e:  # pylint: disable=broad-except
         print(f"Error retrieving email: {e}")
-        msg = f"Error fetching email: {traceback.format_exc()}"
+        errmsg = f"Error fetching email: {traceback.format_exc()}"
 
-    return msg
+    return errmsg
 
 
 def notify_failure(timestamp, error_message):
@@ -99,25 +99,24 @@ def notify_failure(timestamp, error_message):
 # Main workflow
 
 def main():
-    if __name__ == "__main__":
-        now = time.time()
-        if DEBUG_LEVEL > 0:
-            print(f"Current timestamp: {time.ctime(now)}")
-            print(f"SMTP_SERVER: {SMTP_SERVER}")
-            print(f"SMTP_PORT: {SMTP_PORT}")
-            print(f"IMAP_SERVER: {IMAP_SERVER}")
-            print(f"EMAIL_ADDRESS: {EMAIL_ADDRESS}")
+    now = time.time()
+    if DEBUG_LEVEL > 0:
+        print(f"Current timestamp: {time.ctime(now)}")
+        print(f"SMTP_SERVER: {SMTP_SERVER}")
+        print(f"SMTP_PORT: {SMTP_PORT}")
+        print(f"IMAP_SERVER: {IMAP_SERVER}")
+        print(f"EMAIL_ADDRESS: {EMAIL_ADDRESS}")
 
-        if (result := send_email(now)):
-            notify_failure(now, result)
+    if (result := send_email(now)):
+        notify_failure(now, f"Send failure: {result}")
+    else:
+        print("Waiting for email to be sent...")
+        time.sleep(30)  # Wait 30 seconds
+        print("Retrieving email...")
+        if (result := retrieve_email(now)):
+            notify_failure(now, f"Receive failure: {result}")
         else:
-            print("Waiting for email to be sent...")
-            time.sleep(30)  # Wait 30 seconds
-            print("Retrieving email...")
-            if (result := retrieve_email(now)):
-                notify_failure(now, result)
-            else:
-                print("Email retrieved successfully")
+            print("Email retrieved successfully")
 
 
 if __name__ == "__main__":
