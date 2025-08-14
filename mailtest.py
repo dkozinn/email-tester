@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring, line-too-long
+# pylint: disable=missing-docstring, disable=line-too-long
 
 import configparser
 import email
