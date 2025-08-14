@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring
+# pylint: disable=missing-docstring, line-too-long
 
 import configparser
 import email
@@ -47,6 +47,7 @@ def send_email(timestamp):
 
     return errmsg
 
+
 # Function to retrieve an email
 
 
@@ -89,7 +90,7 @@ def notify_failure(timestamp, error_message):
         [
             "/usr/local/bin/ntfy",
             "send",
-            f"mailtest failed for timestamp {str(timestamp)}:\n{error_message}"
+            f"mailtest failed for timestamp {str(timestamp)} ({time.ctime(timestamp)}):\n{error_message}",
         ],
         check=True,
         capture_output=True,
@@ -97,6 +98,7 @@ def notify_failure(timestamp, error_message):
 
 
 # Main workflow
+
 
 def main():
     now = time.time()
@@ -107,13 +109,13 @@ def main():
         print(f"IMAP_SERVER: {IMAP_SERVER}")
         print(f"EMAIL_ADDRESS: {EMAIL_ADDRESS}")
 
-    if (result := send_email(now)):
+    if result := send_email(now):
         notify_failure(now, f"Send failure: {result}")
     else:
         print("Waiting for email to be sent...")
         time.sleep(30)  # Wait 30 seconds
         print("Retrieving email...")
-        if (result := retrieve_email(now)):
+        if result := retrieve_email(now):
             notify_failure(now, f"Receive failure: {result}")
         else:
             print("Email retrieved successfully")
