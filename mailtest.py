@@ -5,10 +5,10 @@ import email
 import imaplib
 import os
 import smtplib
-import subprocess
 import time
 import traceback
 from email.mime.text import MIMEText
+import apprise
 
 # Initial info from https://copilot.microsoft.com/shares/vS3rk4XggHAfRioMYiqRP
 
@@ -66,11 +66,11 @@ def retrieve_email(timestamp):
                 for num in data[0].split():
                     result, msg_data = mail.fetch(num, "(RFC822)")
                     if result == "OK":
-                        msg = email.message_from_bytes(msg_data[0][1])
+                        msg = email.message_from_bytes(msg_data[0][1])  # type: ignore
                         print("Email retrieved:")
                         print(f"From: {msg['From']}")
                         print(f"Subject: {msg['Subject']}")
-                        print(f"Body: {msg.get_payload(decode=True).decode()}")
+                        print(f"Body: {msg.get_payload(decode=True).decode()}")  # type: ignore
                         # Mark the email for deletion
                         mail.store(num, "+FLAGS", "\\Deleted")
                         mail.expunge()
@@ -85,16 +85,31 @@ def retrieve_email(timestamp):
     return errmsg
 
 
-def notify_failure(timestamp, error_message):
-    subprocess.run(
-        [
-            "/usr/local/bin/ntfy",
-            "send",
-            f"mailtest failed for timestamp {str(timestamp)} ({time.ctime(timestamp)}):\n{error_message}",
-        ],
-        check=True,
-        capture_output=True,
-    )
+def notify_failure(timestamp, error_message: str):
+    config_path = os.path.expanduser("~/.config/apprise")
+    app = apprise.Apprise()
+
+    if not os.path.exists(config_path):
+        print(f"Apprise config not found: {config_path}")
+        return False
+
+    try:
+        app.add(apprise.AppriseConfig(paths=config_path))
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Error loading Apprise config {config_path}: {e}")
+        return False
+
+    try:
+        result = app.notify(
+            title="Email Test Failed",
+            body=f"mailtest failed for timestamp {str(timestamp)} ({time.ctime(timestamp)}):\n{error_message}",
+        )
+        if not result:
+            print("Apprise notification failed.")
+        return result
+    except Exception as e:  # pylint: disable=broad-except
+        print(f"Error sending Apprise notification: {e}")
+        return False
 
 
 # Main workflow
